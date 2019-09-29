@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+########################################################
+# This script generates a UEFI+ entry on grub.cfg #
+# if UEFI is installed on the system.               #
+########################################################
+
+prefix="/usr"
+exec_prefix="${prefix}"
+
+datarootdir="/usr/share"
+datadir="${datarootdir}"
+
+. "${datadir}/grub/grub-mkconfig_lib"
+
+UEFI_IMAGE="/boot/bios_uefi.gz"
+CLASS="--class UEFI --class gnu --class tool"
+
+if [ -e "${UEFI_IMAGE}" ] && is_path_readable_by_grub "${UEFI_IMAGE}" ; then
+    ## image exists, create menu entry
+    echo "Found UEFI+ image: ${UEFI_IMAGE}" >&2
+    _GRUB_UEFI_HINTS_STRING="$(${grub_probe} --target=hints_string ${UEFI_IMAGE})"
+    _GRUB_UEFI_FS_UUID="$(${grub_probe} --target=fs_uuid ${UEFI_IMAGE})"
+    _GRUB_UEFI_REL_PATH="$(make_system_path_relative_to_its_root ${UEFI_IMAGE})"
+    cat << EOF
+if [ "\${grub_platform}" == "pc" ]; then
+    menuentry "BIOS_UEFI (UEFI+)" ${CLASS} {
+        search --fs-uuid --no-floppy --set=root ${_GRUB_UEFI_HINTS_STRING} ${_GRUB_UEFI_FS_UUID}
+        
+	linux16 /boot/memdisk
+	initrd16 ${_GRUB_UEFI_REL_PATH} ${GRUB_CMDLINE_UEFI}
+    }
+fi
+EOF
+fi
